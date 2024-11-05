@@ -1,0 +1,116 @@
+#include <iostream>
+#include <windows.h>
+#include <tlhelp32.h> // for process snapshot functions
+
+class ProcessManager {
+private:
+    DWORD childPid;
+
+public:
+    ProcessManager() : childPid(0) {}
+
+    void createProcess() {
+        STARTUPINFO si;
+        PROCESS_INFORMATION pi;
+
+        ZeroMemory(&si, sizeof(si));
+        si.cb = sizeof(si);
+        ZeroMemory(&pi, sizeof(pi));
+
+        // Create a new process
+        if (!CreateProcess(
+                "C:\\Windows\\System32\\notepad.exe", // Path to executable
+                NULL, // Command line
+                NULL, // Process handle not inheritable
+                NULL, // Thread handle not inheritable
+                FALSE, // Set handle inheritance to FALSE
+                0, // No creation flags
+                NULL, // Use parent's environment block
+                NULL, // Use parent's starting directory 
+                &si, // Pointer to STARTUPINFO structure
+                &pi) // Pointer to PROCESS_INFORMATION structure
+        ) {
+            std::cerr << "CreateProcess failed with error: " << GetLastError() << std::endl;
+            return;
+        }
+
+        childPid = pi.dwProcessId;
+        std::cout << "New process created with PID: " << childPid << std::endl;
+
+        // Close process and thread handles. 
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+    }
+
+    void monitorProcess() {
+        if (childPid != 0) {
+            std::cout << "Process ID: " << childPid << ", State: Running" << std::endl;
+        } else {
+            std::cout << "No child process to monitor." << std::endl;
+        }
+    }
+
+    void terminateProcess() {
+        if (childPid != 0) {
+            HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, childPid);
+            if (hProcess == NULL) {
+                std::cerr << "Error: Could not open process." << std::endl;
+                return;
+            }
+
+            if (TerminateProcess(hProcess, 0)) {
+                std::cout << "Process " << childPid << " terminated successfully." << std::endl;
+                childPid = 0; // Reset child PID after termination
+            } else {
+                std::cerr << "Error terminating process: " << GetLastError() << std::endl;
+            }
+
+            CloseHandle(hProcess);
+        } else {
+            std::cout << "No child process to terminate." << std::endl;
+        }
+    }
+};
+
+class Menu {
+private:
+    ProcessManager processManager;
+
+public:
+    void display() {
+        int choice;
+
+        while (true) {
+            std::cout << "\nMenu:\n";
+            std::cout << "1. Create a child process\n";
+            std::cout << "2. Monitor process state\n";
+            std::cout << "3. Terminate a process\n";
+            std::cout << "4. Exit the program\n";
+            std::cout << "Select an option: ";
+            std::cin >> choice;
+
+            switch (choice) {
+                case 1:
+                    processManager.createProcess();
+                    break;
+                case 2:
+                    processManager.monitorProcess();
+                    break;
+                case 3:
+                    processManager.terminateProcess();
+                    break;
+                case 4:
+                    std::cout << "Exiting program." << std::endl;
+                    return;
+                default:
+                    std::cout << "Invalid option, please try again." << std::endl;
+            }
+        }
+    }
+};
+
+int main() {
+    Menu menu;
+    menu.display(); // Start the menu
+    return 0;
+}
